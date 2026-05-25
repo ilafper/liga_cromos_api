@@ -20,7 +20,7 @@ async function connectToMongoDB() {
     console.log("ESta conectado, Go go go go");
     const db = client.db('liga_cromos');
     return {
-      clientes: db.collection('usuarios'),
+      usuarios: db.collection('usuarios'),
     };
   } catch (error) {
     console.error("Error al conectar a MongoDB:", error);
@@ -47,7 +47,7 @@ app.get('/api/cromos', async (req, res) => {
 app.post("/api/login", async (req, res) => {
   
   try {
-    const { correo, contraseña } = req.body;
+    const { correo, password } = req.body;
 
     console.log("Intentando login para:", correo);
 
@@ -55,7 +55,7 @@ app.post("/api/login", async (req, res) => {
     const { usuarios } = await connectToMongoDB();
 
     //buscar usuario
-    const usuario = await usuarios.findOne({ correo });
+    const usuario = await usuarios.findOne({ correo, password });
 
     // si existe usuario
     if (!usuario) {
@@ -66,33 +66,15 @@ app.post("/api/login", async (req, res) => {
       });
     }
 
-    // comparar contraseñas con bcrypt
-    const contraseñaValida = await bcrypt.compare(
-      contraseña,
-      usuario.contraseña
-    );
-
-    if (!contraseñaValida) {
-      console.log("Contraseña incorrecta");
-      return res.status(401).json({
-        success: false,
-        message: "Correo o contraseña incorrectas",
-      });
-    }
-
-    console.log("Login exitoso para:", usuario.nombre);
+    console.log("Login exitoso para:", usuario.correo);
 
     
     const respuesta = {
       success: true,
       message:"Inicio Sesion Exitoso",
       user: {
-        id: usuario._id,
-        nombre: usuario.nombre,
-        apellidos: usuario.apellidos,
         correo: usuario.correo,
-        rol: usuario.rol,
-        code_user: usuario.code_user
+        
       },
     };
 
