@@ -30,13 +30,24 @@ async function connectToMongoDB() {
 }
 
 
+app.get('/api/cromos', async (req, res) => {
+  try {
+    const { cromos } = await connectToMongoDB();
+    const lista_cromos = await cromos.find().toArray();
+    //console.log(lista_clientes);
+
+    res.json({ success: true,mensaje:"cromos aleatorios" , lista_cromos});
+  } catch (error) {
+    res.status(400).json({ error: 'Error al obtener los clientes' });
+  }
+});
 
 app.get('/api/cromosRamdom', async (req, res) => {
   try {
     const { cromos } = await connectToMongoDB();
-    const lista_clientes = await clientes.find().toArray();
+    const lista_clientes = await cromos.find().toArray();
     //console.log(lista_clientes);
-    const sobre_cartas= lista_clientes[Math.floor(Math.random() * 6) + 1];
+    const sobre_cartas = lista_clientes.sort(() => Math.random() - 0.5).slice(0, 6);
 
     res.json({ success: true,mensaje:"cromos aleatorios" , sobre_cartas});
   } catch (error) {
@@ -44,7 +55,9 @@ app.get('/api/cromosRamdom', async (req, res) => {
   }
 });
 
+
 //api login
+
 
 app.post("/api/login", async (req, res) => {
   
