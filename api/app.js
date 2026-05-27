@@ -21,6 +21,7 @@ async function connectToMongoDB() {
     const db = client.db('liga_cromos');
     return {
       usuarios: db.collection('usuarios'),
+      cromos:db.collection('cromos')
     };
   } catch (error) {
     console.error("Error al conectar a MongoDB:", error);
@@ -30,13 +31,14 @@ async function connectToMongoDB() {
 
 
 
-app.get('/api/cromos', async (req, res) => {
+app.get('/api/cromosRamdom', async (req, res) => {
   try {
-    const { clientes } = await connectToMongoDB();
+    const { cromos } = await connectToMongoDB();
     const lista_clientes = await clientes.find().toArray();
     //console.log(lista_clientes);
-    
-    res.json({ success: true,mensaje:"todos los clientes Sisi" , lista_clientes});
+    const sobre_cartas= lista_clientes[Math.floor(Math.random() * 6) + 1];
+
+    res.json({ success: true,mensaje:"cromos aleatorios" , sobre_cartas});
   } catch (error) {
     res.status(400).json({ error: 'Error al obtener los clientes' });
   }
