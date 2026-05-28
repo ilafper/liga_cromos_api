@@ -1,6 +1,6 @@
 const express = require('express');
 const { MongoClient, ServerApiVersion } = require('mongodb');
-
+const bcrypt = require("bcryptjs");
 const { z, regex } = require('zod');
 const app = express();
 app.use(express.json());
@@ -106,42 +106,29 @@ app.post("/api/login", async (req, res) => {
 
 
 
-/*
-//Crear cliente 
-app.post('/api/crearcliente', async (req, res) => {
+app.post("/api/registro", async (req, res) => {
   try {
-    // recpger los datos 
-    const {nombre, apellidos,telefono,direccion,correo} = req.body;
 
-    if(!nombre || !apellidos || !telefono || !direccion || !correo){
-      res.status(400).json({
-      success: false,
-      message: "rellena todos los campo correctamente"
-    });
-    }
-    
-    console.log("datos datos:",nombre, apellidos, telefono, direccion, correo);
-    // quitar espacio al inicio y fin.
+    const { nombre, correo, password1, password2 } = req.body;
 
-    let tele= telefono.trim();
-    console.log("tele tele telefono",tele);
-    
-    const { clientes } = await connectToMongoDB();
-    // crear el esquema para validar con zod
+    const { usuarios } = await connectToMongoDB();
+    // validacion con zod
+
     const resultado = z.object({
       nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
-      apellidos: z.string().min(3, "Los apellidos deben tener al menos 3 caracteres"),
-      //valedar en el tlf no meter letras y un minimo y maximo
-      tele: z.string().regex(/^\d+$/, "El teléfono debe contener solo números").min(7,"minimo 7 digitos").max(15,'maximo 15 digitos'),
-      correo: z.email("Correo electrónico inválido"),
-      direccion:z.string().min(5, "la direccion debe estar correcta ").max(100, 'la longitud no puede ser mayor que 100 caracteres'),
-    }).safeParse({nombre, apellidos,tele,direccion,correo});
+      correo: z.email("Correo electrónico inválido"), 
+      password: z.string().min(3, "La contraseña debe tener al menos 3 caracteres"),
+      password2: z.string().min(3, "La contraseña debe tener al menos 3 caracteres")
+      //validaciones personalizadas en vez de las .min que son predefinidas de zod
+    }).refine(data => data.contraseña === data.contraseña2, {
+      message: "Las contraseñas no coinciden",
+      path: ["contraseña2"]
+      
+    }).safeParse({ nombre, correo, contraseña, contraseña2 });
 
-    // coger el mensaje de error para mostarar
      if (!resultado.success) {
       console.log("sisis zod");
-      //resultado.error?.issues?.[0]?.message;
-      const primerError = resultado.error?.issues?.[0]?.message;;
+      const primerError = resultado.error?.issues?.[0]?.message;
       console.log(primerError);
       
       return res.status(400).json({
@@ -151,57 +138,62 @@ app.post('/api/crearcliente', async (req, res) => {
     }
 
 
-    // Verificar correo duplicado
-    const usuarioExistente = await clientes.findOne({ correo: correo.toLowerCase()});
-    
-    if (usuarioExistente) {
+    // Verificar contraseñas
+    if (password1 !== password2) {
       return res.status(400).json({ 
+        success: false,
+        message: "Las contraseñas no coinciden" 
+      });
+    }
+
+    // Verificar correo duplicado
+    const usuarioExistente = await usuarios.findOne({ correo });
+    if (usuarioExistente) {
+      return res.status(409).json({ 
         success: false,
         message: "El correo ya está registrado" 
       });
     }
 
 
-    const code_user = 'codigo' + Math.floor(Math.random() * 1000);
-    // nuevo user
-    
+    // Hashear contraseña
+    const saltRounds = 10;
+
+    const contraseñaHasheada = await bcrypt.hash(contraseña, saltRounds);
+
+    const code_user = 'Codigo' + Math.floor(Math.random() * 1000);
+
     const nuevoUsuario = {
       nombre,
-      apellidos,
-      telefono:tele,
-      direccion,
       correo,
-      code_user
+      password: contraseñaHasheada,
+      code_user,
+      lista_cromos:[]
     };
 
+    await usuarios.insertOne(nuevoUsuario);
 
-    console.log("nuevo nuevo",nuevoUsuario);
-    //insertar en l base de datos 
-    await clientes.insertOne(nuevoUsuario);
-
-    // mensaje final correcto si fue bien
-    res.status(200).json({
+    // devolver respuesta 
+    res.status(201).json({
       success: true,
       message: "Usuario creado exitosamente",
       user: {
         nombre,
         apellidos,
-        tele,
-        direccion,
         correo,
         code_user
       }
     });
 
-    
   } catch (error) {
-    console.error("Error al guardar el cliente", error);
-    res.status(500).json({ error: 'Error interno del servidor al crear el producto' });
+    console.error("Error al crear usuario:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Error interno del servidor" 
+    });
   }
-
 });
 
-*/
 
 
  //eliminar producto por id
