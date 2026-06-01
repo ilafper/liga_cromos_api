@@ -59,7 +59,7 @@ app.get("/api/cromosRamdom", async (req, res) => {
 
 app.get("/api/random", async (req, res) => {
   //1. obtener selecciones
-  
+  //134516
   const url ="https://www.thesportsdb.com/api/v1/json/123/search_all_teams.php?l=FIFA%20World%20Cup";
   const response = await fetch(url);
   const seleciones_mundial = await response.json();
@@ -73,9 +73,8 @@ app.get("/api/random", async (req, res) => {
   
   
   for (let cada_equipo of seleccionados) {
-    const jugadoresRes = await fetch(
-      `https://www.thesportsdb.com/api/v1/json/123/lookup_all_players.php?id=${cada_equipo.idTeam}`,
-    );
+    const jugadoresRes = await fetch(`https://www.thesportsdb.com/api/v1/json/123/lookup_all_players.php?id=${cada_equipo.idTeam}`);
+
     //https://www.thesportsdb.com/api/v1/json/123/lookup_all_players.php?id=133604
     const jugadoresData = await jugadoresRes.json();
 
@@ -97,8 +96,40 @@ app.get("/api/random", async (req, res) => {
   res.json({ success: true, mensaje: "cromos aleatorios", jugadores_aleatorios });
 });
 
-//api login
+//todos jugadores
 
+
+app.get("/api/allplayers", async (req, res) => {
+  //1. obtener todas las selecciones
+  const url =
+    "https://www.thesportsdb.com/api/v1/json/123/search_all_teams.php?l=English%20Premier%20League";
+  const rest = await fetch(url);
+  const data = await rest.json();
+
+  let totalJugadores = 0;
+
+  for (let team of data.teams) {
+    const r = await fetch(
+      `https://www.thesportsdb.com/api/v1/json/123/lookup_all_players.php?id=${team.idTeam}`,
+    );
+
+    const d = await r.json();
+
+    if (d.player) {
+      totalJugadores += d.player.length;
+    }
+  }
+
+  console.log("Total jugadores:", totalJugadores);
+
+  res.json({ success: true, mensaje: "cromos aleatorios", totalJugadores });
+});
+
+
+
+
+
+//api login
 app.post("/api/login", async (req, res) => {
   try {
     const { correo, password } = req.body;
@@ -109,7 +140,7 @@ app.post("/api/login", async (req, res) => {
     const { usuarios } = await connectToMongoDB();
 
     //buscar usuario
-    const usuario = await usuarios.findOne({ correo, password });
+    const usuario = await usuarios.findOne({ correo });
 
     // si existe usuario
     if (!usuario) {
@@ -120,17 +151,37 @@ app.post("/api/login", async (req, res) => {
       });
     }
 
-    console.log("Login exitoso para:", usuario.correo);
+    // comparar contraseñas con bcrypt
+    const contraseñaValida = await bcrypt.compare(
+      password,
+      usuario.password
+    );
 
+
+    if (!contraseñaValida) {
+      console.log("Contraseña incorrecta");
+      return res.status(401).json({
+        success: false,
+        message: "Correo o contraseña incorrectas",
+      });
+    }
+
+    console.log("Login exitoso para:", usuario.nombre);
+
+    
     const respuesta = {
       success: true,
-      message: "Inicio Sesion Exitoso",
+      message:"Inicio Sesion Exitoso",
       user: {
+        id: usuario._id,
+        nombre: usuario.nombre,
         correo: usuario.correo,
+        code_user: usuario.code_user
       },
     };
 
     res.json(respuesta);
+    
   } catch (error) {
     console.error("Error en login:", error);
     res.status(500).json({
@@ -143,7 +194,8 @@ app.post("/api/login", async (req, res) => {
 app.post("/api/registro", async (req, res) => {
   try {
     const { nombre, correo, password1, password2 } = req.body;
-
+    console.log(nombre, correo, password1, password2);
+    
     const { usuarios } = await connectToMongoDB();
     // validacion con zod
 
@@ -151,7 +203,7 @@ app.post("/api/registro", async (req, res) => {
       .object({
         nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
         correo: z.email("Correo electrónico inválido"),
-        password: z
+        password1: z
           .string()
           .min(3, "La contraseña debe tener al menos 3 caracteres"),
         password2: z
@@ -159,11 +211,11 @@ app.post("/api/registro", async (req, res) => {
           .min(3, "La contraseña debe tener al menos 3 caracteres"),
         //validaciones personalizadas en vez de las .min que son predefinidas de zod
       })
-      .refine((data) => data.contraseña === data.contraseña2, {
+      .refine((data) => data.password1 === data.password2, {
         message: "Las contraseñas no coinciden",
-        path: ["contraseña2"],
+        path: ["password2"],
       })
-      .safeParse({ nombre, correo, contraseña, contraseña2 });
+      .safeParse({ nombre, correo, password1, password2 });
 
     if (!resultado.success) {
       console.log("sisis zod");
@@ -196,7 +248,7 @@ app.post("/api/registro", async (req, res) => {
     // Hashear contraseña
     const saltRounds = 10;
 
-    const contraseñaHasheada = await bcrypt.hash(contraseña, saltRounds);
+    const contraseñaHasheada = await bcrypt.hash(password1, saltRounds);
 
     const code_user = "Codigo" + Math.floor(Math.random() * 1000);
 
@@ -211,15 +263,9 @@ app.post("/api/registro", async (req, res) => {
     await usuarios.insertOne(nuevoUsuario);
 
     // devolver respuesta
-    res.status(201).json({
+    res.json({
       success: true,
       message: "Usuario creado exitosamente",
-      user: {
-        nombre,
-        apellidos,
-        correo,
-        code_user,
-      },
     });
   } catch (error) {
     console.error("Error al crear usuario:", error);
