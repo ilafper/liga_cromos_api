@@ -42,6 +42,7 @@ app.get('/api/cromos', async (req, res) => {
   }
 });
 
+
 app.get('/api/cromosRamdom', async (req, res) => {
   try {
     const { cromos } = await connectToMongoDB();
@@ -55,9 +56,22 @@ app.get('/api/cromosRamdom', async (req, res) => {
   }
 });
 
+app.get("/api/random",async (req,res) =>{
+  //1. obtener selecciones 
+  let selecciones_mundial='https://www.thesportsdb.com/api/v1/json/123/search_all_teams.php?l=FIFA%20World%20Cup';
+  //2. 
+  let seleciones_random = selecciones_mundial.sort(()=> Math.random () - 0.5).slice(0.6);
+
+  res.json({ success: true,mensaje:"cromos aleatorios" , seleciones_random});
+});
+
+
+
+
+
+
 
 //api login
-
 
 app.post("/api/login", async (req, res) => {
   
