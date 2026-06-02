@@ -69,7 +69,7 @@ app.get("/api/random", async (req, res) => {
   const seleccionados = equipos.sort(() => Math.random() - 0.5).slice(0, 6);
   // lista vacia donde iran los jugadores
   let jugadores_aleatorios = [];
-  console.log(seleccionados);
+  //console.log(seleccionados);
   
   
   for (let cada_equipo of seleccionados) {
@@ -89,9 +89,12 @@ app.get("/api/random", async (req, res) => {
         seleccion:randomPlayer.strNationality,
         logo_seleccion: cada_equipo.strLogo
       });
+      //console.log(jugadores_aleatorios);
+      
+
     }
   }
-  console.log(jugadores_aleatorios);
+  //console.log(jugadores_aleatorios);
 
   res.json({ success: true, mensaje: "cromos aleatorios", jugadores_aleatorios });
 });
