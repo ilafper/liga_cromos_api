@@ -111,15 +111,15 @@ app.get("/api/allplayers", async (req, res) => {
 
   let totalJugadores = 0;
 
-  for (let team of data.teams) {
-    const r = await fetch(
-      `https://www.thesportsdb.com/api/v1/json/123/lookup_all_players.php?id=${team.idTeam}`,
+  for (let cada_equipo of data.teams) {
+    const respuesta = await fetch(
+      `https://www.thesportsdb.com/api/v1/json/123/lookup_all_players.php?id=${cada_equipo.idTeam}`,
     );
 
-    const d = await r.json();
+    const cada_juagador = await respuesta.json();
 
-    if (d.player) {
-      totalJugadores += d.player.length;
+    if (cada_juagador.player) {
+      totalJugadores += cada_juagador.player.length;
     }
   }
 
