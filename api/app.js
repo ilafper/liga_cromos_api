@@ -42,105 +42,54 @@ app.get("/api/cromos", async (req, res) => {
   }
 });
 
-app.get("/api/cromosRamdom", async (req, res) => {
+app.post("/api/abrirsobre", async (req, res) => {
   try {
     const { cromos } = await connectToMongoDB();
+    const { usuarios } = await connectToMongoDB();
+    const code_user = req.body.code_user;
     const lista_clientes = await cromos.find().toArray();
     //console.log(lista_clientes);
-    const sobre_cartas = lista_clientes
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 6);
+    const sobre_cartas = lista_clientes.sort(() => Math.random() - 0.5).slice(0, 6);
 
-    res.json({ success: true, mensaje: "cromos aleatorios", sobre_cartas });
+     // busacar usuario
+    const usuario = await usuarios.findOne({ code_user: code_user });
+    
+    if (!usuario) {
+      return res.status(404).json({ success: false, mensaje: "Usuario no encontrado" });
+    }
+    
+    // actualizar la lista del usuario
+    await usuarios.updateOne(
+      {code_user:code_user},
+      { $push:{lista_cromos:{ $each: sobre_cartas
+      }}}
+    );
+    console.log("sobres de cartas:", sobre_cartas);
+    res.json({ success: true, mensaje: "cromos aleatorios", sobre_cartas , lista_cromos: usuario.lista_cromos });
+  } catch (error) {
+    res.status(400).json({ error: "Error al obtener los cromos" });
+  }
+});
+
+
+
+
+//datos usuarios
+app.get("/api/datosusuarios/:code_user", async (req, res) => {
+  try {
+    
+    const code_user = req.params.code_user;
+    console.log("obteniendo datos del usuario con code_user:", code_user);
+    const { usuarios } = await connectToMongoDB();
+    const lista_usuarios = await usuarios.find({ code_user }).toArray();
+    //console.log(lista_clientes);
+
+
+    res.json({ success: true, mensaje: "lista cromos usuario",  lista_cromos: lista_usuarios[0].lista_cromos });
   } catch (error) {
     res.status(400).json({ error: "Error al obtener los clientes" });
-  }
+  } 
 });
-
-app.get("/api/random", async (req, res) => {
-  //1. obtener selecciones
-  //134516
-  const url ="https://www.thesportsdb.com/api/v1/json/123/search_all_teams.php?l=FIFA%20World%20Cup";
-  const response = await fetch(url);
-  const seleciones_mundial = await response.json();
-  // eequipos del mundial
-  let equipos = seleciones_mundial.teams;
-  //coger 6 equipos randoms
-  const seleccionados = equipos.sort(() => Math.random() - 0.5).slice(0, 6);
-  // lista vacia donde iran los jugadores
-  let jugadores_aleatorios = [];
-  //console.log(seleccionados);
-  
-  
-  for (let cada_equipo of seleccionados) {
-    const jugadoresRes = await fetch(`https://www.thesportsdb.com/api/v1/json/123/lookup_all_players.php?id=${cada_equipo.idTeam}`);
-
-    //https://www.thesportsdb.com/api/v1/json/123/lookup_all_players.php?id=133604
-    const jugadoresData = await jugadoresRes.json();
-
-    if (jugadoresData.player) {
-      //coger jugador aleatorio de cada equipo
-      const randomPlayer =jugadoresData.player[Math.floor(Math.random() * jugadoresData.player.length)];
-
-      jugadores_aleatorios.push({
-        jugador: randomPlayer.strPlayer,
-        equipo: randomPlayer.strTeam,
-        imagen_player: randomPlayer.strCutout || randomPlayer.strThumb,
-        seleccion:randomPlayer.strNationality,
-        logo_seleccion: cada_equipo.strLogo
-      });
-      //console.log(jugadores_aleatorios);
-      
-
-    }
-  }
-  //console.log(jugadores_aleatorios);
-
-  res.json({ success: true, mensaje: "cromos aleatorios", jugadores_aleatorios });
-});
-
-//todos jugadores
-
-
-app.get("/api/allplayers", async (req, res) => {
-  //1. obtener selecciones
-  
-  const url ="https://www.thesportsdb.com/api/v1/json/123/search_all_teams.php?l=FIFA%20World%20Cup";
-  const response = await fetch(url);
-  const seleciones_mundial = await response.json();
-  // eequipos del mundial
-  let equipos = seleciones_mundial.teams;
-  
-  // lista vacia donde iran los jugadores
-  let todos_jugadores = [];
-  //console.log(seleccionados);
-  
-  
-  for (let cada_equipo of equipos) {
-    const jugadoresRes = await fetch(`https://www.thesportsdb.com/api/v1/json/123/lookup_all_players.php?id=${cada_equipo.idTeam}`);
-
-    //https://www.thesportsdb.com/api/v1/json/123/lookup_all_players.php?id=133604
-    const jugadoresData = await jugadoresRes.json();
-    if (jugadoresData.player) {
-      const jugadores_equipos= jugadoresData.player;
-      for (let cada_jugador of jugadores_equipos) {
-       todos_jugadores.push({
-        nombre_jugador:cada_jugador.strPlayer,
-        logo_seleccion:cada_equipo.strLogo,
-        imagen_player:cada_jugador.strCutout
-       });
-        
-      }
-    }
-
-    
-    
-  }
-  //console.log(jugadores_aleatorios);
-
-  res.json({ success: true, mensaje: "cromos aleatorios", todos_jugadores });
-});
-
 
 
 
@@ -192,6 +141,7 @@ app.post("/api/login", async (req, res) => {
         id: usuario._id,
         nombre: usuario.nombre,
         correo: usuario.correo,
+        lista_cromos: usuario.lista_cromos,
         code_user: usuario.code_user
       },
     };
