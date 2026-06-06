@@ -42,50 +42,135 @@ app.get("/api/cromos", async (req, res) => {
   }
 });
 
+
+
 app.post("/api/abrirsobre", async (req, res) => {
   try {
     const { cromos } = await connectToMongoDB();
     const { usuarios } = await connectToMongoDB();
     const code_user = req.body.code_user;
-    const lista_clientes = await cromos.find().toArray();
-    //console.log(lista_clientes);
-    const sobre_cartas = lista_clientes.sort(() => Math.random() - 0.5).slice(0, 6);
+  
+   
+    const lista_sobres = await cromos.find().toArray();
+    const sobre_cartas = lista_sobres.sort(() => Math.random() - 0.5).slice(0, 6);
 
-     // busacar usuario
+    
     const usuario = await usuarios.findOne({ code_user: code_user });
     
     if (!usuario) {
       return res.status(404).json({ success: false, mensaje: "Usuario no encontrado" });
     }
     
-    // actualizar la lista del usuario
+    
+    let nuevas = [];
+    let repetidas = [];
+    
+    
+    for (let j = 0; j < sobre_cartas.length; j++) {
+      const cartaSobre = sobre_cartas[j];
+      
+      
+      let esta = false;
+      for (let i = 0; i < usuario.lista_cromos.length; i++) {
+        if (usuario.lista_cromos[i].nombre === cartaSobre.nombre) {
+          esta = true;
+          break; 
+        }
+      }
+      
+     
+      if (esta) {
+        repetidas.push(cartaSobre);
+       
+      } else {
+        nuevas.push(cartaSobre);
+        
+      }
+    }
+    
+    
+    
+    // aactualizar
+    if (nuevas.length > 0) {
+      await usuarios.updateOne(
+        { code_user: code_user },
+        { $push: { lista_cromos: { $each: nuevas } } }
+      );
+    }
+    
+    if (repetidas.length > 0) {
+      await usuarios.updateOne(
+        { code_user: code_user },
+        { $push: { lista_repetidos: { $each: repetidas } } }
+      );
+    }
+    
+   
+    const user = await usuarios.findOne({ code_user: code_user });
+    let total_cartas= user.lista_cromos.length + user.lista_repetidos.length;
     await usuarios.updateOne(
-      {code_user:code_user},
-      { $push:{lista_cromos:{ $each: sobre_cartas
-      }}}
+      { code_user: code_user },
+      {
+        $inc: { "estadisticas.sobres_abiertos": 1 },
+        $set: {
+          "estadisticas.cartas_totales": total_cartas ,
+          "estadisticas.cartas_repetidas": user.lista_repetidos.length
+        }
+      }
     );
-    console.log("sobres de cartas:", sobre_cartas);
+    
     res.json({ success: true, mensaje: "cromos aleatorios", sobre_cartas , lista_cromos: usuario.lista_cromos });
+    
   } catch (error) {
+    console.error("Error:", error);
     res.status(400).json({ error: "Error al obtener los cromos" });
   }
 });
 
 
-
-
 //datos usuarios
+app.post("/api/prueba", async (req, res) => {
+  try {
+    
+    const code_user = req.body.code_user;
+    console.log("obteniendo datos del usuario con code_user:", code_user);
+    const { usuarios } = await connectToMongoDB();
+    //busdcar usuario
+    const usuario = await usuarios.findOne({ code_user });
+    //console.log(lista_clientes);
+    let lista_jugador=[];
+    console.log(lista_jugador);
+
+    let lista_repetidos = usuario.lista_repetidos;
+    
+
+    for (let i = 0; i < lista_repetidos.length; i++) {
+      console.log(lista_repetidos.length);
+      if (lista_repetidos[i].nombre == "Jude") {
+          lista_jugador.push(lista_repetidos[i]);
+      }
+      
+    }
+
+    res.json({ success: true, mensaje: "lista cromos usuario", total_jude:lista_jugador.length});
+  } catch (error) {
+    res.status(400).json({ error: "Error al obtener los clientes" });
+  } 
+});
+
+
 app.get("/api/datosusuarios/:code_user", async (req, res) => {
   try {
     
     const code_user = req.params.code_user;
     console.log("obteniendo datos del usuario con code_user:", code_user);
     const { usuarios } = await connectToMongoDB();
-    const lista_usuarios = await usuarios.find({ code_user }).toArray();
+    //busdcar usuario
+    const usuario = await usuarios.findOne({ code_user });
     //console.log(lista_clientes);
 
 
-    res.json({ success: true, mensaje: "lista cromos usuario",  lista_cromos: lista_usuarios[0].lista_cromos });
+    res.json({ success: true, mensaje: "lista cromos usuario", estadisticas:usuario.estadisticas,  lista_cromos: usuario.lista_cromos });
   } catch (error) {
     res.status(400).json({ error: "Error al obtener los clientes" });
   } 
@@ -142,6 +227,8 @@ app.post("/api/login", async (req, res) => {
         nombre: usuario.nombre,
         correo: usuario.correo,
         lista_cromos: usuario.lista_cromos,
+        lista_repetidos:usuario.lista_repetidos,
+        estadisticas:usuario.estadisticas,
         code_user: usuario.code_user
       },
     };
@@ -224,6 +311,7 @@ app.post("/api/registro", async (req, res) => {
       password: contraseñaHasheada,
       code_user,
       lista_cromos: [],
+      lista_repetidos:[]
     };
 
     await usuarios.insertOne(nuevoUsuario);
