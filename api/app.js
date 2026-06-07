@@ -62,17 +62,26 @@ app.post("/api/abrirsobre", async (req, res) => {
     }
     
     
-    let nuevas = [];
-    let repetidas = [];
     
-    
+    /*
+    const cromo_usuario = {
+      nombre:sobre_cartas[j].nombre,
+      apellidos:sobre_cartas[j].apellidos,
+      liga:sobre_cartas[j].liga,
+      equipo:sobre_cartas[j].equipo,
+      imagenUrl:sobre_cartas[j].imagenUrl,
+      imagen_seleccion:sobre_cartas[j].imagen_seleccion,
+      repetidas:0
+    }
+    */
+    // comparar si esta el cromo
+
     for (let j = 0; j < sobre_cartas.length; j++) {
-      const cartaSobre = sobre_cartas[j];
-      
+      const cada_jugador = sobre_cartas[j];
       
       let esta = false;
       for (let i = 0; i < usuario.lista_cromos.length; i++) {
-        if (usuario.lista_cromos[i].nombre === cartaSobre.nombre) {
+        if (usuario.lista_cromos[i].nombre === cada_jugador.nombre) {
           esta = true;
           break; 
         }
@@ -80,46 +89,57 @@ app.post("/api/abrirsobre", async (req, res) => {
       
      
       if (esta) {
-        repetidas.push(cartaSobre);
+        await usuarios.updateOne(
+          {code_user:code_user, "lista_cromos.nombre":cada_jugador.nombre},
+          {$inc: { "lista_cromos.$.repetidas": 1 }}
+        );
        
       } else {
-        nuevas.push(cartaSobre);
+        const cromo_usuario = {
+          nombre: sobre_cartas[j].nombre,
+          apellidos: sobre_cartas[j].apellidos,
+          liga: sobre_cartas[j].liga,
+          equipo: sobre_cartas[j].equipo,
+          imagenUrl: sobre_cartas[j].imagenUrl,
+          imagen_seleccion: sobre_cartas[j].imagen_seleccion,
+          repetidas: 0
+        }
+
+        await usuarios.updateOne(
+          {code_user:code_user},
+          {$push: { lista_cromos: cromo_usuario }}
+        );
         
       }
     }
     
+
     
-    
-    // aactualizar
-    if (nuevas.length > 0) {
-      await usuarios.updateOne(
-        { code_user: code_user },
-        { $push: { lista_cromos: { $each: nuevas } } }
-      );
-    }
-    
-    if (repetidas.length > 0) {
-      await usuarios.updateOne(
-        { code_user: code_user },
-        { $push: { lista_repetidos: { $each: repetidas } } }
-      );
-    }
-    
-   
     const user = await usuarios.findOne({ code_user: code_user });
-    let total_cartas= user.lista_cromos.length + user.lista_repetidos.length;
+    let total_cartas=0;
+    let total_repetidas=0;
+
+    for (let i = 0; i < user.lista_cromos.length; i++) {
+      total_repetidas= total_repetidas + user.lista_cromos[i].repetidas;
+      total_cartas = user.lista_cromos.length +total_repetidas;
+
+    }
+    
+    
     await usuarios.updateOne(
       { code_user: code_user },
+
       {
         $inc: { "estadisticas.sobres_abiertos": 1 },
         $set: {
           "estadisticas.cartas_totales": total_cartas ,
-          "estadisticas.cartas_repetidas": user.lista_repetidos.length
+          "estadisticas.cartas_repetidas": total_repetidas
         }
       }
     );
     
-    res.json({ success: true, mensaje: "cromos aleatorios", sobre_cartas , lista_cromos: usuario.lista_cromos });
+    
+    res.json({ success: true, mensaje: "cromos aleatorios" ,sobre_cartas, lista_cromos: usuario.lista_cromos });
     
   } catch (error) {
     console.error("Error:", error);
@@ -247,6 +267,7 @@ app.post("/api/login", async (req, res) => {
 app.post("/api/registro", async (req, res) => {
   try {
     const { nombre, correo, password1, password2 } = req.body;
+    
     console.log(nombre, correo, password1, password2);
     
     const { usuarios } = await connectToMongoDB();
@@ -330,7 +351,25 @@ app.post("/api/registro", async (req, res) => {
   }
 });
 
-//eliminar producto por id
+app.get("/api/tienda", async (req, res) => {
+
+  try {
+    const { usuarios } = await connectToMongoDB();
+    const { cromos } = await connectToMongoDB();
+    // cartas aleatorias
+
+    const lista_sobres = await cromos.find().toArray();
+    
+    const cartas_tienda = lista_sobres.sort(() => Math.random() - 0.5).slice(0, 4);
+
+    res.json({
+      success: true,
+      cartas_random:cartas_tienda, 
+    });
+  } catch (error) {
+    
+  }
+});
 
 
 
