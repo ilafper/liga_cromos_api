@@ -1,7 +1,7 @@
 const express = require("express");
 const { MongoClient, ServerApiVersion } = require("mongodb");
 const bcrypt = require("bcryptjs");
-const { z, regex } = require("zod");
+const { z, regex, success } = require("zod");
 const app = express();
 app.use(express.json());
 
@@ -42,27 +42,25 @@ app.get("/api/cromos", async (req, res) => {
   }
 });
 
-
-
 app.post("/api/abrirsobre", async (req, res) => {
   try {
     const { cromos } = await connectToMongoDB();
     const { usuarios } = await connectToMongoDB();
     const code_user = req.body.code_user;
-  
-   
-    const lista_sobres = await cromos.find().toArray();
-    const sobre_cartas = lista_sobres.sort(() => Math.random() - 0.5).slice(0, 6);
 
-    
+    const lista_sobres = await cromos.find().toArray();
+    const sobre_cartas = lista_sobres
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 6);
+
     const usuario = await usuarios.findOne({ code_user: code_user });
-    
+
     if (!usuario) {
-      return res.status(404).json({ success: false, mensaje: "Usuario no encontrado" });
+      return res
+        .status(404)
+        .json({ success: false, mensaje: "Usuario no encontrado" });
     }
-    
-    
-    
+
     /*
     const cromo_usuario = {
       nombre:sobre_cartas[j].nombre,
@@ -78,110 +76,102 @@ app.post("/api/abrirsobre", async (req, res) => {
 
     for (let j = 0; j < sobre_cartas.length; j++) {
       const cada_jugador = sobre_cartas[j];
-      
+
       let esta = false;
       for (let i = 0; i < usuario.lista_cromos.length; i++) {
         if (usuario.lista_cromos[i].nombre === cada_jugador.nombre) {
           esta = true;
-          break; 
+          break;
         }
       }
-      
-     
+
       if (esta) {
         await usuarios.updateOne(
-          {code_user:code_user, "lista_cromos.nombre":cada_jugador.nombre},
-          {$inc: { "lista_cromos.$.repetidas": 1 }}
+          { code_user: code_user, "lista_cromos.nombre": cada_jugador.nombre },
+          { $inc: { "lista_cromos.$.repetidas": 1 } },
         );
-       
       } else {
         const cromo_usuario = {
           nombre: sobre_cartas[j].nombre,
           apellidos: sobre_cartas[j].apellidos,
-          liga: sobre_cartas[j].liga,
-          equipo: sobre_cartas[j].equipo,
           imagenUrl: sobre_cartas[j].imagenUrl,
           imagen_seleccion: sobre_cartas[j].imagen_seleccion,
-          repetidas: 0
-        }
+          repetidas: 0,
+        };
 
         await usuarios.updateOne(
-          {code_user:code_user},
-          {$push: { lista_cromos: cromo_usuario }}
+          { code_user: code_user },
+          { $push: { lista_cromos: cromo_usuario } },
         );
-        
       }
     }
-    
 
-    
     const user = await usuarios.findOne({ code_user: code_user });
-    let total_cartas=0;
-    let total_repetidas=0;
+    let total_cartas = 0;
+    let total_repetidas = 0;
 
     for (let i = 0; i < user.lista_cromos.length; i++) {
-      total_repetidas= total_repetidas + user.lista_cromos[i].repetidas;
-      total_cartas = user.lista_cromos.length +total_repetidas;
-
+      total_repetidas = total_repetidas + user.lista_cromos[i].repetidas;
+      total_cartas = user.lista_cromos.length + total_repetidas;
     }
-    
-    
+
     await usuarios.updateOne(
       { code_user: code_user },
 
       {
         $inc: { "estadisticas.sobres_abiertos": 1 },
         $set: {
-          "estadisticas.cartas_totales": total_cartas ,
-          "estadisticas.cartas_repetidas": total_repetidas
-        }
-      }
+          "estadisticas.cartas_totales": total_cartas,
+          "estadisticas.cartas_repetidas": total_repetidas,
+        },
+      },
     );
-    
-    
-    res.json({ success: true, mensaje: "cromos aleatorios" ,sobre_cartas, lista_cromos: usuario.lista_cromos });
-    
+
+    res.json({
+      success: true,
+      mensaje: "cromos aleatorios",
+      sobre_cartas,
+      lista_cromos: usuario.lista_cromos,
+    });
   } catch (error) {
     console.error("Error:", error);
     res.status(400).json({ error: "Error al obtener los cromos" });
   }
 });
 
-
 //datos usuarios
 app.post("/api/prueba", async (req, res) => {
   try {
-    
     const code_user = req.body.code_user;
     console.log("obteniendo datos del usuario con code_user:", code_user);
     const { usuarios } = await connectToMongoDB();
     //busdcar usuario
     const usuario = await usuarios.findOne({ code_user });
     //console.log(lista_clientes);
-    let lista_jugador=[];
+    let lista_jugador = [];
     console.log(lista_jugador);
 
     let lista_repetidos = usuario.lista_repetidos;
-    
 
     for (let i = 0; i < lista_repetidos.length; i++) {
       console.log(lista_repetidos.length);
       if (lista_repetidos[i].nombre == "Jude") {
-          lista_jugador.push(lista_repetidos[i]);
+        lista_jugador.push(lista_repetidos[i]);
       }
-      
     }
 
-    res.json({ success: true, mensaje: "lista cromos usuario", total_jude:lista_jugador.length});
+    res.json({
+      success: true,
+      mensaje: "lista cromos usuario",
+      total_jude: lista_jugador.length,
+    });
   } catch (error) {
     res.status(400).json({ error: "Error al obtener los clientes" });
-  } 
+  }
 });
-
 
 app.get("/api/datosusuarios/:code_user", async (req, res) => {
   try {
-    
     const code_user = req.params.code_user;
     console.log("obteniendo datos del usuario con code_user:", code_user);
     const { usuarios } = await connectToMongoDB();
@@ -189,15 +179,16 @@ app.get("/api/datosusuarios/:code_user", async (req, res) => {
     const usuario = await usuarios.findOne({ code_user });
     //console.log(lista_clientes);
 
-
-    res.json({ success: true, mensaje: "lista cromos usuario", estadisticas:usuario.estadisticas,  lista_cromos: usuario.lista_cromos });
+    res.json({
+      success: true,
+      mensaje: "lista cromos usuario",
+      estadisticas: usuario.estadisticas,
+      lista_cromos: usuario.lista_cromos,
+    });
   } catch (error) {
     res.status(400).json({ error: "Error al obtener los clientes" });
-  } 
+  }
 });
-
-
-
 
 //api login
 app.post("/api/login", async (req, res) => {
@@ -222,11 +213,7 @@ app.post("/api/login", async (req, res) => {
     }
 
     // comparar contraseñas con bcrypt
-    const contraseñaValida = await bcrypt.compare(
-      password,
-      usuario.password
-    );
-
+    const contraseñaValida = await bcrypt.compare(password, usuario.password);
 
     if (!contraseñaValida) {
       console.log("Contraseña incorrecta");
@@ -238,23 +225,21 @@ app.post("/api/login", async (req, res) => {
 
     console.log("Login exitoso para:", usuario.nombre);
 
-    
     const respuesta = {
       success: true,
-      message:"Inicio Sesion Exitoso",
+      message: "Inicio Sesion Exitoso",
       user: {
         id: usuario._id,
         nombre: usuario.nombre,
         correo: usuario.correo,
         lista_cromos: usuario.lista_cromos,
-        lista_repetidos:usuario.lista_repetidos,
-        estadisticas:usuario.estadisticas,
-        code_user: usuario.code_user
+        lista_repetidos: usuario.lista_repetidos,
+        estadisticas: usuario.estadisticas,
+        code_user: usuario.code_user,
       },
     };
 
     res.json(respuesta);
-    
   } catch (error) {
     console.error("Error en login:", error);
     res.status(500).json({
@@ -267,9 +252,9 @@ app.post("/api/login", async (req, res) => {
 app.post("/api/registro", async (req, res) => {
   try {
     const { nombre, correo, password1, password2 } = req.body;
-    
+
     console.log(nombre, correo, password1, password2);
-    
+
     const { usuarios } = await connectToMongoDB();
     // validacion con zod
 
@@ -332,7 +317,7 @@ app.post("/api/registro", async (req, res) => {
       password: contraseñaHasheada,
       code_user,
       lista_cromos: [],
-      lista_repetidos:[]
+      lista_repetidos: [],
     };
 
     await usuarios.insertOne(nuevoUsuario);
@@ -351,28 +336,87 @@ app.post("/api/registro", async (req, res) => {
   }
 });
 
-app.get("/api/tienda", async (req, res) => {
+app.post("/api/intercambio", async (req, res) => {
+  try {
+    const { usuarios } = await connectToMongoDB();
+    const { primerSeleccionado, segundoSeleccionado, code_user } = req.body;
+    const usuario = await usuarios.findOne({ code_user });
 
+    //console.log(usuario);
+    let lista_cromos_usuario = usuario.lista_cromos;
+    //console.log(primerSeleccionado);
+    //console.log(segundoSeleccionado);
+    //console.log(lista_cromos_usuario);
+    let esta = false;
+    // buscar cromo
+    
+    console.log("nombre");
+    
+    console.log(primerSeleccionado.nombre);
+    
+    for (let i = 0; i < lista_cromos_usuario.length; i++) {
+      if (primerSeleccionado.nombre == lista_cromos_usuario[i].nombre) {
+        esta = true;
+        break;
+      } else {
+      }
+    }
+
+    if (esta) {
+        await usuarios.updateOne(
+          {
+            code_user: code_user,
+            "lista_cromos.nombre": segundoSeleccionado.nombre,
+          },
+          { $inc: { "lista_cromos.$.repetidas": -1 } },
+        );
+
+        await usuarios.updateOne(
+          {
+            code_user: code_user,
+            "lista_cromos.nombre": primerSeleccionado.nombre,
+          },
+          { $inc: { "lista_cromos.$.repetidas": 1 } },
+        );
+      } else {
+        const intercambio_nuevo_cromos = {
+          nombre: primerSeleccionado.nombre,
+          apellidos: primerSeleccionado.apellidos,
+          imagenUrl: primerSeleccionado.imagenUrl,
+          imagen_seleccion: primerSeleccionado.imagen_seleccion,
+        };
+        console.log(intercambio_nuevo_cromos);
+
+        await usuarios.updateOne(
+          {
+            code_user: code_user,
+          },
+          { $push: { lista_cromos: intercambio_nuevo_cromos } },
+        );
+      }
+    console.log();
+
+    res.json({ success: true, mensaje: "intercambio exitoso" });
+  } catch (error) {}
+});
+
+app.get("/api/tienda", async (req, res) => {
   try {
     const { usuarios } = await connectToMongoDB();
     const { cromos } = await connectToMongoDB();
     // cartas aleatorias
 
     const lista_sobres = await cromos.find().toArray();
-    
-    const cartas_tienda = lista_sobres.sort(() => Math.random() - 0.5).slice(0, 4);
+
+    const cartas_tienda = lista_sobres
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 4);
 
     res.json({
       success: true,
-      cartas_random:cartas_tienda, 
+      cartas_random: cartas_tienda,
     });
-  } catch (error) {
-    
-  }
+  } catch (error) {}
 });
-
-
-
-
 
 module.exports = app;
