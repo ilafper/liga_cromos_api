@@ -362,6 +362,15 @@ app.post("/api/intercambio", async (req, res) => {
       }
     }
 
+    
+    if (lista_cromos_usuario[i].repetidos <=0) {
+      return res.json({ 
+        success: false, 
+        mensaje: "Nop tienes copias en este cromo" 
+      })
+    }
+    
+    
     if (esta) {
         await usuarios.updateOne(
           {
@@ -378,6 +387,7 @@ app.post("/api/intercambio", async (req, res) => {
           },
           { $inc: { "lista_cromos.$.repetidas": 1 } },
         );
+
       } else {
         const intercambio_nuevo_cromos = {
           nombre: primerSeleccionado.nombre,
